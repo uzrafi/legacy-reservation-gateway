@@ -1,0 +1,97 @@
+{
+  "Comment": "Asynchronous ticket issuance against the RESLINK/2 legacy host. Retries live here, not in code; on failure the seat hold is released (compensation) and the job is marked failed.",
+  "StartAt": "MarkRunning",
+  "States": {
+    "MarkRunning": {
+      "Type": "Task",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "markRunning", "input.$": "$" },
+      "ResultPath": null,
+      "Retry": [
+        { "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "Next": "CheckHold"
+    },
+    "CheckHold": {
+      "Type": "Task",
+      "Comment": "Is the seat hold still active?",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "checkHold", "input.$": "$" },
+      "ResultPath": "$.hold",
+      "TimeoutSeconds": 15,
+      "Retry": [
+        { "ErrorEquals": ["LegacyRetryableError", "LegacyTimeoutError", "States.Timeout"], "IntervalSeconds": 1, "MaxAttempts": 4, "BackoffRate": 2, "MaxDelaySeconds": 10, "JitterStrategy": "FULL" },
+        { "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "Catch": [
+        { "ErrorEquals": ["HoldNotValidError"], "ResultPath": "$.error", "Next": "MarkFailed" },
+        { "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReleaseHold" }
+      ],
+      "Next": "HoldValid?"
+    },
+    "HoldValid?": {
+      "Type": "Choice",
+      "Choices": [{ "Variable": "$.hold.valid", "BooleanEquals": true, "Next": "IssueTicket" }],
+      "Default": "HoldNotValid"
+    },
+    "HoldNotValid": {
+      "Type": "Pass",
+      "Result": { "Error": "HoldNotValidError", "Cause": "The seat hold is no longer active" },
+      "ResultPath": "$.error",
+      "Next": "MarkFailed"
+    },
+    "IssueTicket": {
+      "Type": "Task",
+      "Comment": "Slow (5-20 s) multi-step legacy operation. Idempotent per hold, so timeouts are safe to retry.",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "issueTicket", "input.$": "$" },
+      "ResultPath": "$.ticket",
+      "TimeoutSeconds": 45,
+      "Retry": [
+        { "ErrorEquals": ["LegacyRetryableError", "LegacyTimeoutError", "States.Timeout"], "IntervalSeconds": 2, "MaxAttempts": 4, "BackoffRate": 2, "MaxDelaySeconds": 30, "JitterStrategy": "FULL" },
+        { "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "ReleaseHold" }],
+      "Next": "Confirm"
+    },
+    "Confirm": {
+      "Type": "Task",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "confirm", "input.$": "$" },
+      "ResultPath": null,
+      "Retry": [
+        { "ErrorEquals": ["States.ALL"], "IntervalSeconds": 1, "MaxAttempts": 5, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "End": true
+    },
+    "ReleaseHold": {
+      "Type": "Task",
+      "Comment": "Compensation: give the seat back. Retried hard, because a leaked hold blocks a real seat.",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "releaseHold", "input.$": "$" },
+      "ResultPath": "$.release",
+      "TimeoutSeconds": 15,
+      "Retry": [
+        { "ErrorEquals": ["LegacyRetryableError", "LegacyTimeoutError", "States.Timeout"], "IntervalSeconds": 2, "MaxAttempts": 6, "BackoffRate": 2, "MaxDelaySeconds": 30, "JitterStrategy": "FULL" },
+        { "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 1, "MaxAttempts": 3, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$.compensationError", "Next": "MarkFailed" }],
+      "Next": "MarkFailed"
+    },
+    "MarkFailed": {
+      "Type": "Task",
+      "Resource": "${ticket_worker_arn}",
+      "Parameters": { "step": "markFailed", "input.$": "$" },
+      "ResultPath": null,
+      "Retry": [
+        { "ErrorEquals": ["States.ALL"], "IntervalSeconds": 1, "MaxAttempts": 5, "BackoffRate": 2, "JitterStrategy": "FULL" }
+      ],
+      "Next": "Failed"
+    },
+    "Failed": {
+      "Type": "Fail",
+      "Error": "TicketingFailed",
+      "Cause": "Ticket could not be issued; see the job's failureReason"
+    }
+  }
+}

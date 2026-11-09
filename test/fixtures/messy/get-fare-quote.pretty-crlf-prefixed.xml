@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:ns1="urn:reslink:v2">
+  <SOAP-ENV:Body>
+    <ns1:GetFareQuoteResponse>
+      <ns1:FQ>
+        <ns1:FQID>FQ00AB12CD</ns1:FQID>
+        <ns1:ORIG>YUL  </ns1:ORIG>
+        <ns1:DEST>CDG  </ns1:DEST>
+        <ns1:FLTNO>AC0870</ns1:FLTNO>
+        <ns1:DT>01JAN27</ns1:DT>
+        <ns1:FCLS>J</ns1:FCLS>
+        <ns1:AMT>0004900</ns1:AMT>
+        <ns1:CUR>CAD</ns1:CUR>
+      </ns1:FQ>
+    </ns1:GetFareQuoteResponse>
+  </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

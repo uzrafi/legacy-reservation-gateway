@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"  xmlns:tns="urn:reslink:v2"><soap:Body><HoldSeatResponse xmlns="urn:reslink:v2"><HOLDID>HC4C07B1</HOLDID><STAT>HK</STAT><EXPTM>09NOV26 0611Z</EXPTM></HoldSeatResponse></soap:Body></soap:Envelope>

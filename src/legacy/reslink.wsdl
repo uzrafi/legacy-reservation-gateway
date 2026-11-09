@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RESLINK/2 - simulated legacy reservation host (SOAP 1.1, document/literal).
+  Deliberately "1990s": cryptic upper-case element names, fixed-width codes,
+  DDMMMYY dates, zero-padded integer-cent amounts in string fields, and error
+  details buried in soap:Fault/detail with numeric codes.
+-->
+<definitions name="ResLink"
+  targetNamespace="urn:reslink:v2"
+  xmlns="http://schemas.xmlsoap.org/wsdl/"
+  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:tns="urn:reslink:v2"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <types>
+    <xsd:schema targetNamespace="urn:reslink:v2" elementFormDefault="qualified">
+
+      <xsd:element name="AuthHeader">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="USR" type="xsd:string"/>
+            <xsd:element name="PWD" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="ResError">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="ERRCD" type="xsd:string"/>
+            <xsd:element name="ERRTX" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- GetFareQuote -->
+      <xsd:element name="GetFareQuoteRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="ORIG" type="xsd:string"/>
+            <xsd:element name="DEST" type="xsd:string"/>
+            <xsd:element name="DT" type="xsd:string"/>
+            <xsd:element name="FCLS" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetFareQuoteResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="FQ">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element name="FQID" type="xsd:string"/>
+                  <xsd:element name="ORIG" type="xsd:string"/>
+                  <xsd:element name="DEST" type="xsd:string"/>
+                  <xsd:element name="FLTNO" type="xsd:string"/>
+                  <xsd:element name="DT" type="xsd:string"/>
+                  <xsd:element name="FCLS" type="xsd:string"/>
+                  <xsd:element name="AMT" type="xsd:string"/>
+                  <xsd:element name="CUR" type="xsd:string"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- GetSeatMap -->
+      <xsd:element name="GetSeatMapRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="FLTNO" type="xsd:string"/>
+            <xsd:element name="DT" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetSeatMapResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="FLTNO" type="xsd:string"/>
+            <xsd:element name="DT" type="xsd:string"/>
+            <xsd:element name="ACFT" type="xsd:string"/>
+            <xsd:element name="ROWS">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element name="ROW" type="xsd:string" maxOccurs="unbounded"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- HoldSeat -->
+      <xsd:element name="HoldSeatRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="FLTNO" type="xsd:string"/>
+            <xsd:element name="DT" type="xsd:string"/>
+            <xsd:element name="SEAT" type="xsd:string"/>
+            <xsd:element name="PAXNM" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="HoldSeatResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+            <xsd:element name="STAT" type="xsd:string"/>
+            <xsd:element name="EXPTM" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- GetHoldStatus -->
+      <xsd:element name="GetHoldStatusRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="GetHoldStatusResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+            <xsd:element name="STAT" type="xsd:string"/>
+            <xsd:element name="FLTNO" type="xsd:string"/>
+            <xsd:element name="DT" type="xsd:string"/>
+            <xsd:element name="SEAT" type="xsd:string"/>
+            <xsd:element name="EXPTM" type="xsd:string"/>
+            <xsd:element name="TKTNO" type="xsd:string" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- ReleaseHold -->
+      <xsd:element name="ReleaseHoldRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="ReleaseHoldResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+            <xsd:element name="STAT" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <!-- IssueTicket -->
+      <xsd:element name="IssueTicketRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+            <xsd:element name="PAYREF" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="IssueTicketResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="TKTNO" type="xsd:string"/>
+            <xsd:element name="HOLDID" type="xsd:string"/>
+            <xsd:element name="STAT" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+
+  <message name="AuthHeader"><part name="AuthHeader" element="tns:AuthHeader"/></message>
+  <message name="GetFareQuoteIn"><part name="parameters" element="tns:GetFareQuoteRequest"/></message>
+  <message name="GetFareQuoteOut"><part name="parameters" element="tns:GetFareQuoteResponse"/></message>
+  <message name="GetSeatMapIn"><part name="parameters" element="tns:GetSeatMapRequest"/></message>
+  <message name="GetSeatMapOut"><part name="parameters" element="tns:GetSeatMapResponse"/></message>
+  <message name="HoldSeatIn"><part name="parameters" element="tns:HoldSeatRequest"/></message>
+  <message name="HoldSeatOut"><part name="parameters" element="tns:HoldSeatResponse"/></message>
+  <message name="GetHoldStatusIn"><part name="parameters" element="tns:GetHoldStatusRequest"/></message>
+  <message name="GetHoldStatusOut"><part name="parameters" element="tns:GetHoldStatusResponse"/></message>
+  <message name="ReleaseHoldIn"><part name="parameters" element="tns:ReleaseHoldRequest"/></message>
+  <message name="ReleaseHoldOut"><part name="parameters" element="tns:ReleaseHoldResponse"/></message>
+  <message name="IssueTicketIn"><part name="parameters" element="tns:IssueTicketRequest"/></message>
+  <message name="IssueTicketOut"><part name="parameters" element="tns:IssueTicketResponse"/></message>
+
+  <portType name="ResLinkPortType">
+    <operation name="GetFareQuote"><input message="tns:GetFareQuoteIn"/><output message="tns:GetFareQuoteOut"/></operation>
+    <operation name="GetSeatMap"><input message="tns:GetSeatMapIn"/><output message="tns:GetSeatMapOut"/></operation>
+    <operation name="HoldSeat"><input message="tns:HoldSeatIn"/><output message="tns:HoldSeatOut"/></operation>
+    <operation name="GetHoldStatus"><input message="tns:GetHoldStatusIn"/><output message="tns:GetHoldStatusOut"/></operation>
+    <operation name="ReleaseHold"><input message="tns:ReleaseHoldIn"/><output message="tns:ReleaseHoldOut"/></operation>
+    <operation name="IssueTicket"><input message="tns:IssueTicketIn"/><output message="tns:IssueTicketOut"/></operation>
+  </portType>
+
+  <binding name="ResLinkBinding" type="tns:ResLinkPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="GetFareQuote">
+      <soap:operation soapAction="urn:reslink:v2#GetFareQuote"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="GetSeatMap">
+      <soap:operation soapAction="urn:reslink:v2#GetSeatMap"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="HoldSeat">
+      <soap:operation soapAction="urn:reslink:v2#HoldSeat"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="GetHoldStatus">
+      <soap:operation soapAction="urn:reslink:v2#GetHoldStatus"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="ReleaseHold">
+      <soap:operation soapAction="urn:reslink:v2#ReleaseHold"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+    <operation name="IssueTicket">
+      <soap:operation soapAction="urn:reslink:v2#IssueTicket"/>
+      <input><soap:header message="tns:AuthHeader" part="AuthHeader" use="literal"/><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+  </binding>
+
+  <service name="ResLinkService">
+    <port name="ResLinkPort" binding="tns:ResLinkBinding">
+      <soap:address location="http://localhost:9081/reslink"/>
+    </port>
+  </service>
+</definitions>

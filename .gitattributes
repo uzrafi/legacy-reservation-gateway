@@ -1,0 +1,4 @@
+# LF everywhere in the repo; XML fixtures are byte-exact recordings (one is deliberately CRLF).
+* text=auto eol=lf
+test/fixtures/** -text
+*.png binary

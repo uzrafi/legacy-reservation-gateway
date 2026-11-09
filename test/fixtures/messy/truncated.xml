@@ -1,0 +1,1 @@
+<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetFareQuoteResponse xmlns="urn:reslink:v2"><FQ><FQID>FQ1</FQID><ORIG>YYZ  </ORIG><DEST>YVR  </DEST><FLTNO>AC0105</FLTNO><DT>14NOV26</DT><FCLS>Y</FCLS><AMT>00429

@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"  xmlns:tns="urn:reslink:v2"><soap:Body><soap:Fault><faultcode>soap:Server</faultcode><faultstring>RES-ERR 9002</faultstring><detail><ResError><ERRCD>9002</ERRCD><ERRTX>HOST UNAVAILABLE - CICS REGION DOWN</ERRTX></ResError></detail></soap:Fault></soap:Body></soap:Envelope>

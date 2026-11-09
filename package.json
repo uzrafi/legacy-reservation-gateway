@@ -1,0 +1,56 @@
+{
+  "name": "legacy-reservation-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST gateway on AWS in front of a simulated legacy SOAP/XML reservation system, with caching, resilience, async ticketing and a strangler-fig migration.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest",
+    "test:unit": "jest test/unit",
+    "test:contract": "jest test/contract",
+    "test:integration": "jest --config jest.integration.config.js",
+    "local": "tsx src/local/run-local.ts",
+    "local:legacy": "tsx src/local/run-legacy.ts",
+    "faults": "tsx scripts/faults.ts",
+    "token": "tsx scripts/issue-token.ts",
+    "canary": "tsx scripts/canary.ts",
+    "experiments": "tsx scripts/run-experiments.ts"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.28.1",
+    "@aws-lambda-powertools/metrics": "^2.28.1",
+    "@aws-lambda-powertools/tracer": "^2.28.1",
+    "@aws-sdk/client-dynamodb": "^3.900.0",
+    "@aws-sdk/client-lambda": "^3.900.0",
+    "@aws-sdk/client-s3": "^3.900.0",
+    "@aws-sdk/client-sfn": "^3.900.0",
+    "@aws-sdk/client-ssm": "^3.900.0",
+    "@aws-sdk/lib-dynamodb": "^3.900.0",
+    "fast-xml-parser": "^5.3.0",
+    "jose": "^5.10.0",
+    "soap": "^1.4.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.900.0",
+    "@eslint/js": "^9.36.0",
+    "@types/aws-lambda": "^8.10.150",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.18.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "jest": "^29.7.0",
+    "jest-openapi": "^0.14.2",
+    "ts-jest": "^29.4.4",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.45.0",
+    "yaml": "^2.8.1"
+  }
+}

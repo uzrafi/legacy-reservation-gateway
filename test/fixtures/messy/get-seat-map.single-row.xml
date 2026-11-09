@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><GetSeatMapResponse xmlns="urn:reslink:v2"><FLTNO>AC0003</FLTNO><DT>29FEB28</DT><ACFT>789</ACFT><ROWS><ROW>001AH-XA-</ROW></ROWS></GetSeatMapResponse></soap:Body></soap:Envelope>

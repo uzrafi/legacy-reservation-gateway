@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <soap:Fault>
+      <faultcode>soap:Server</faultcode>
+      <faultstring>RES-ERR
+        3001</faultstring>
+      <detail>
+        <rl:ResError xmlns:rl="urn:reslink:v2">
+          <rl:ERRCD>  3001 </rl:ERRCD>
+          <rl:ERRTX>SEAT NOT AVAILABLE   </rl:ERRTX>
+        </rl:ResError>
+      </detail>
+    </soap:Fault>
+  </soap:Body>
+</soap:Envelope>

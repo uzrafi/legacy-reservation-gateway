@@ -1,0 +1,466 @@
+openapi: 3.0.1
+info:
+  title: Legacy Reservation Gateway
+  version: 1.0.0
+  description: |
+    A clean REST API in front of RESLINK/2, a simulated legacy SOAP/XML reservation host.
+
+    * Every request needs an **API key** (`x-api-key`, which selects the partner's usage plan)
+      **and** a **JWT** (`Authorization: Bearer ...`) whose `scope` covers the route.
+    * Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json`.
+    * `GET` responses say how fresh they are: `x-cache` (`HIT`, `STALE`, `MISS`, `STALE_FALLBACK`, `BYPASS`),
+      `Age`, and a `Warning` header when the gateway served stale data because the legacy host was down.
+    * Ticketing is asynchronous: `POST /tickets` returns `202` and a job to poll.
+
+    This file is the contract: API Gateway is deployed from it (the `x-amazon-apigateway-*`
+    extensions and `${...}` placeholders are filled in by Terraform), and contract tests check
+    every Lambda response against it.
+  license:
+    name: MIT
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId: { default: example }
+      region: { default: ca-central-1 }
+      stage: { default: dev }
+
+x-amazon-apigateway-api-key-source: HEADER
+
+x-amazon-apigateway-request-validators:
+  all:
+    validateRequestBody: true
+    validateRequestParameters: true
+  params-only:
+    validateRequestBody: false
+    validateRequestParameters: true
+
+x-amazon-apigateway-gateway-responses:
+  THROTTLED:
+    statusCode: 429
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+      gatewayresponse.header.Retry-After: "'1'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#throttled","title":"Too many requests for this usage plan","status":429,"detail":$context.error.messageString}'
+  QUOTA_EXCEEDED:
+    statusCode: 429
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#quota-exceeded","title":"Daily quota for this usage plan is exhausted","status":429,"detail":$context.error.messageString}'
+  UNAUTHORIZED:
+    statusCode: 401
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+      gatewayresponse.header.WWW-Authenticate: "'Bearer'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#unauthorized","title":"Missing or invalid bearer token","status":401}'
+  ACCESS_DENIED:
+    statusCode: 403
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#forbidden","title":"The token does not grant the scope this route needs","status":403}'
+  INVALID_API_KEY:
+    statusCode: 403
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#invalid-api-key","title":"Missing or invalid API key","status":403}'
+  BAD_REQUEST_PARAMETERS:
+    statusCode: 400
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#validation-error","title":"Request validation failed","status":400,"detail":$context.error.messageString}'
+  BAD_REQUEST_BODY:
+    statusCode: 400
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#validation-error","title":"Request validation failed","status":400,"detail":$context.error.messageString}'
+  INTEGRATION_FAILURE:
+    statusCode: 502
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#upstream-error","title":"The backend integration failed","status":502,"detail":$context.error.messageString}'
+  INTEGRATION_TIMEOUT:
+    statusCode: 504
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#upstream-timeout","title":"The backend did not answer in time","status":504,"detail":$context.error.messageString}'
+  DEFAULT_5XX:
+    statusCode: 500
+    responseParameters:
+      gatewayresponse.header.Content-Type: "'application/problem+json'"
+    responseTemplates:
+      application/json: '{"type":"https://github.com/uzrafi/legacy-reservation-gateway/blob/main/docs/problems.md#internal-error","title":"Gateway error","status":500,"detail":$context.error.messageString}'
+
+security:
+  - api_key: []
+    partner_jwt: []
+
+tags:
+  - name: Fares
+  - name: Seat maps
+  - name: Holds
+  - name: Ticketing
+
+paths:
+  /fares:
+    get:
+      tags: [Fares]
+      operationId: getFareQuote
+      summary: Quote a fare
+      description: |
+        Read-through cached (fresh 5 min, kept 24 h, stale-while-revalidate). While the
+        legacy host is down the last known fare is served with a `Warning` header.
+        Requires scope `fares:read`.
+      x-amazon-apigateway-request-validator: params-only
+      parameters:
+        - { name: origin, in: query, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' }, example: YYZ }
+        - { name: destination, in: query, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' }, example: YVR }
+        - { name: date, in: query, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }, example: '2026-11-14' }
+        - { name: fareClass, in: query, required: false, schema: { type: string, enum: [Y, M, O, J], default: Y } }
+      responses:
+        '200':
+          description: Fare quote
+          headers:
+            x-cache: { $ref: '#/components/headers/XCache' }
+            Age: { $ref: '#/components/headers/Age' }
+            Warning: { $ref: '#/components/headers/Warning' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FareQuote' }
+              example:
+                quoteId: FQ20608008
+                origin: YYZ
+                destination: YVR
+                flightNumber: AC105
+                date: '2026-11-14'
+                fareClass: Y
+                priceCents: 37500
+                currency: CAD
+                source: legacy
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '502': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '504': { $ref: '#/components/responses/Problem' }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: '${fares_invoke_arn}'
+        passthroughBehavior: when_no_match
+
+  /seatmaps/{flightNumber}:
+    get:
+      tags: [Seat maps]
+      operationId: getSeatMap
+      summary: Seat map for a flight
+      description: Cached for only 15 s (seat maps change with every hold). Requires scope `fares:read`.
+      x-amazon-apigateway-request-validator: params-only
+      parameters:
+        - { name: flightNumber, in: path, required: true, schema: { type: string, pattern: '^AC\d{1,4}$' }, example: AC105 }
+        - { name: date, in: query, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }, example: '2026-11-14' }
+      responses:
+        '200':
+          description: Seat map
+          headers:
+            x-cache: { $ref: '#/components/headers/XCache' }
+            Age: { $ref: '#/components/headers/Age' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeatMap' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '504': { $ref: '#/components/responses/Problem' }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: '${seatmaps_invoke_arn}'
+        passthroughBehavior: when_no_match
+
+  /holds:
+    post:
+      tags: [Holds]
+      operationId: createHold
+      summary: Hold a seat for 15 minutes
+      description: |
+        Idempotent per `Idempotency-Key`: a replay returns the original response with
+        `idempotent-replayed: true`. Requires scope `holds:write`.
+      x-amazon-apigateway-request-validator: all
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HoldRequest' }
+            example:
+              flightNumber: AC105
+              date: '2026-11-14'
+              seat: 12C
+              passenger: { givenName: Uzair, surname: Rafi }
+      responses:
+        '201':
+          description: Seat held
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Hold' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+        '504': { $ref: '#/components/responses/Problem' }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: '${holds_invoke_arn}'
+        passthroughBehavior: when_no_match
+
+  /tickets:
+    post:
+      tags: [Ticketing]
+      operationId: startTicketing
+      summary: Issue a ticket for a hold (asynchronous)
+      description: |
+        Starts a Step Functions workflow and returns `202 Accepted` with a job id at once;
+        issuing a ticket on the legacy host takes 5-20 s. Poll `GET /tickets/{jobId}`.
+        Idempotent per `Idempotency-Key`. Requires scope `tickets:write`.
+      x-amazon-apigateway-request-validator: all
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TicketRequest' }
+            example: { holdId: HA258845, paymentRef: PAY-7731 }
+      responses:
+        '202':
+          description: Ticketing job accepted
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketJobAccepted' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: '${tickets_invoke_arn}'
+        passthroughBehavior: when_no_match
+
+  /tickets/{jobId}:
+    get:
+      tags: [Ticketing]
+      operationId: getTicketJob
+      summary: Status of a ticketing job
+      description: Requires scope `tickets:write`.
+      x-amazon-apigateway-request-validator: params-only
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Job status
+          headers:
+            Retry-After: { description: Present while the job is still running, schema: { type: integer } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketJob' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: '${tickets_invoke_arn}'
+        passthroughBehavior: when_no_match
+
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: x-api-key
+      in: header
+      description: Partner API key. Selects the usage plan (partner-basic or partner-premium).
+    partner_jwt:
+      type: apiKey
+      name: Authorization
+      in: header
+      description: '`Bearer <JWT>` (RS256). Scopes: `fares:read`, `holds:write`, `tickets:write`.'
+      x-amazon-apigateway-authtype: custom
+      x-amazon-apigateway-authorizer:
+        type: request
+        identitySource: method.request.header.Authorization
+        authorizerUri: '${authorizer_invoke_arn}'
+        authorizerResultTtlInSeconds: 300
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 8-128 URL-safe characters; a UUID is ideal. Replays return the first response.
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{8,128}$' }
+
+  headers:
+    XCache:
+      description: How the gateway answered (HIT, STALE, MISS, STALE_FALLBACK, BYPASS)
+      schema: { type: string, enum: [HIT, STALE, MISS, STALE_FALLBACK, BYPASS] }
+    Age:
+      description: Seconds since the data was fetched from the legacy host
+      schema: { type: integer }
+    Warning:
+      description: '`110 - "Response is Stale"` when stale data was served'
+      schema: { type: string }
+
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path: { type: string }
+              message: { type: string }
+
+    FareQuote:
+      type: object
+      additionalProperties: false
+      required: [quoteId, origin, destination, flightNumber, date, fareClass, priceCents, currency, source]
+      properties:
+        quoteId: { type: string }
+        origin: { type: string, pattern: '^[A-Z]{3}$' }
+        destination: { type: string, pattern: '^[A-Z]{3}$' }
+        flightNumber: { type: string, pattern: '^AC\d{1,4}$' }
+        date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        fareClass: { type: string, enum: [Y, M, O, J] }
+        priceCents: { type: integer, minimum: 0, description: Total fare in minor units (cents) }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        source: { type: string, enum: [legacy, modern], description: Which system produced the quote }
+
+    SeatMap:
+      type: object
+      additionalProperties: false
+      required: [flightNumber, date, aircraft, availableSeats, rows]
+      properties:
+        flightNumber: { type: string }
+        date: { type: string }
+        aircraft: { type: string }
+        availableSeats: { type: integer, minimum: 0 }
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [row, seats]
+            properties:
+              row: { type: integer, minimum: 1 }
+              seats:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [seat, status]
+                  properties:
+                    seat: { type: string, pattern: '^\d{1,2}[A-F]$' }
+                    status: { type: string, enum: [available, occupied, held] }
+
+    HoldRequest:
+      type: object
+      additionalProperties: false
+      required: [flightNumber, date, seat, passenger]
+      properties:
+        flightNumber: { type: string, pattern: '^AC\d{1,4}$' }
+        date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        seat: { type: string, pattern: '^([1-9]|[12]\d|30)[A-F]$' }
+        passenger:
+          type: object
+          additionalProperties: false
+          required: [givenName, surname]
+          properties:
+            givenName: { type: string, minLength: 1, maxLength: 40 }
+            surname: { type: string, minLength: 1, maxLength: 40 }
+
+    Hold:
+      type: object
+      additionalProperties: false
+      required: [holdId, status, expiresAt]
+      properties:
+        holdId: { type: string, pattern: '^H[0-9A-Z]{7}$' }
+        status: { type: string, enum: [held, ticketed, released, expired] }
+        expiresAt: { type: string, description: ISO-8601 instant }
+        flightNumber: { type: string }
+        date: { type: string }
+        seat: { type: string }
+        ticketNumber: { type: string }
+
+    TicketRequest:
+      type: object
+      additionalProperties: false
+      required: [holdId, paymentRef]
+      properties:
+        holdId: { type: string, pattern: '^H[0-9A-Z]{7}$' }
+        paymentRef: { type: string, pattern: '^[A-Za-z0-9-]{4,24}$' }
+
+    TicketJobAccepted:
+      type: object
+      additionalProperties: false
+      required: [jobId, status, statusUrl]
+      properties:
+        jobId: { type: string }
+        status: { type: string, enum: [PENDING] }
+        statusUrl: { type: string }
+
+    TicketJob:
+      type: object
+      additionalProperties: false
+      required: [jobId, status, holdId, createdAt, updatedAt]
+      properties:
+        jobId: { type: string }
+        status: { type: string, enum: [PENDING, RUNNING, TICKETED, FAILED] }
+        holdId: { type: string }
+        ticketNumber: { type: string }
+        failureReason:
+          type: string
+          enum: [hold_not_valid, payment_declined, upstream_unavailable, upstream_timeout, ticketing_error]
+        compensated: { type: boolean, description: True when the seat hold was released after a failure }
+        createdAt: { type: string }
+        updatedAt: { type: string }
