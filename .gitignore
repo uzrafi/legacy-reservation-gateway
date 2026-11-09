@@ -22,3 +22,4 @@ data/fares.csv
 infra/.build/
 infra/backend.hcl
 results/*.log
+*.tfplan
