@@ -13,7 +13,7 @@ info:
     * Ticketing is asynchronous: `POST /tickets` returns `202` and a job to poll.
 
     This file is the contract: API Gateway is deployed from it (the `x-amazon-apigateway-*`
-    extensions and `${...}` placeholders are filled in by Terraform), and contract tests check
+    extensions and the Lambda ARN placeholders are filled in by Terraform), and contract tests check
     every Lambda response against it.
   license:
     name: MIT

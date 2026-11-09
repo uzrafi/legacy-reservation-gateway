@@ -108,7 +108,7 @@ locals {
   dashboard = {
     widgets = [
       {
-        type = "text", x = 0, y = 0, width = 24, height = 2
+        type       = "text", x = 0, y = 0, width = 24, height = 2
         properties = { markdown = "# Legacy Reservation Gateway (${var.stage})\nREST facade over the RESLINK/2 SOAP host. Cache, circuit breaker, async ticketing, strangler-fig fares." }
       },
       {
@@ -176,7 +176,7 @@ locals {
       {
         type = "metric", x = 0, y = 14, width = 8, height = 6
         properties = {
-          title = "Throttled (429) per API key", view = "timeSeries", region = local.region, period = 60, stat = "Sum"
+          title   = "Throttled (429) per API key", view = "timeSeries", region = local.region, period = 60, stat = "Sum"
           metrics = [for k, v in aws_api_gateway_api_key.partner : [local.m, "Throttled429", "apiKeyId", v.id, { label = k }]]
         }
       },

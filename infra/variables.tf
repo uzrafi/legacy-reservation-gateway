@@ -50,15 +50,15 @@ variable "bulkhead_concurrency" {
 variable "legacy_faults" {
   description = "Default fault injection of the simulated legacy host (override at runtime via /admin/faults)."
   type = object({
-    latency_min_ms  = number
-    latency_max_ms  = number
-    error_rate      = number
-    hang_rate       = number
-    hang_ms         = number
-    rate_limit_rps  = number
-    ticket_min_ms   = number
-    ticket_max_ms   = number
-    refile_rate     = number
+    latency_min_ms = number
+    latency_max_ms = number
+    error_rate     = number
+    hang_rate      = number
+    hang_ms        = number
+    rate_limit_rps = number
+    ticket_min_ms  = number
+    ticket_max_ms  = number
+    refile_rate    = number
   })
   default = {
     latency_min_ms = 600
