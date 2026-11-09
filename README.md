@@ -51,12 +51,6 @@ the host, not the cold tail.
 The first full run of these experiments exposed a retry storm (63% of requests failing at 20 req/s);
 the fix is described in [docs/architecture.md](docs/architecture.md#bulkhead-and-admission-control).
 
-### Resume bullets (from the measurements above)
-
-- Built a **Node.js/TypeScript** REST gateway (API Gateway, Lambda, DynamoDB) in front of a simulated legacy **SOAP/XML** reservation system, cutting median fare-query latency from **1,070 ms to 17 ms** with a DynamoDB read-through cache (**76% hit rate**, 57% fewer legacy calls).
-- Kept client-facing errors at **0.83%** (vs. **22%** unprotected) while the legacy system failed **20%** of calls, using timeouts, retries with jitter, a shared circuit breaker, gateway-side rate limiting and stale-cache fallback.
-- Moved slow ticket issuance to an asynchronous **Step Functions** workflow with retries and a compensating seat release, completing **89/89** jobs (**100%**) under injected faults and releasing the hold on all 11 declined payments.
-- Migrated fare quotes off the legacy system with the **strangler fig** pattern: shadow comparison cut mismatches from **32.3% to 0%**, then weighted Lambda aliases shifted traffic 10% → 100% with **zero errors**. Partner access managed with **API keys, usage plans and per-client throttling**, all in **Terraform**.
 
 ## What's in here
 
