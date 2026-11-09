@@ -26,7 +26,37 @@ Full diagram and the reasoning behind each choice: [docs/architecture.md](docs/a
 
 ## Results
 
-RESULTS_PLACEHOLDER
+Measured on the **local harness** (real handlers, real SOAP host with injected latency and faults,
+in-memory DynamoDB stand-in with 5 ms latency, the real Step Functions definition), with k6.
+Raw numbers: [docs/results-local.md](docs/results-local.md) and [results/local/](results/local/).
+The same experiments run against AWS with `npm run experiments -- --target aws`; those numbers will replace these.
+
+| Experiment | Result |
+|---|---|
+| `GET /fares` direct to the legacy SOAP host (4 req/s) | p50 **1,070 ms**, p95 **1,470 ms**, p99 **10,879 ms** (injected 10 s hangs) |
+| `GET /fares` through the gateway, 10 req/s, realistic route mix | p50 **17.4 ms**, p95 1,414 ms, p99 1,619 ms; **76.1%** cache hit rate; 0.03% errors; 56.8% of legacy calls avoided |
+| Same, overload at 20 req/s (4x the host's capacity, cache still warming) | p50 16.4 ms, p95 3,279 ms; 78.5% hit rate; **5.95% of requests shed** with `503` instead of a collapse; 70.1% of legacy calls avoided |
+| Legacy host failing **20%** of calls | client errors: unprotected **22.3%** → retries + breaker **4.2%** → full stack **0.83%** |
+| Legacy host **100% down for 2 min** (after warm-up) | availability **100%** before, **65.9%** during, 93.9% after; breaker recovered **17.8 s** after the host came back |
+| 100 ticketing jobs, legacy failing 20% of calls | **89/89** normal jobs ticketed (**100%**), p50 16.2 s, p95 23.4 s; **11/11** declined payments compensated (hold released) |
+| Strangler fig: shadow comparison | mismatches **32.35%** (naive rules, 2,065 compared) → **0.00%** (fixed rules, 2,057 compared) |
+| Strangler fig: canary 0 → 10 → 50 → 100% | **0 errors** at every step (4,800 requests) |
+| Usage-plan throttling | AWS only, not measured yet |
+
+Why p95 barely moves at 10 req/s: about a quarter of requests are first-time keys (24 routes × 60 days ×
+4 classes ≈ 5,800 keys, and a 10-minute test cannot warm all of them), and every miss is a full
+1-1.5 s legacy round trip. The cache changes the *typical* request (median 1,070 → 17 ms) and protects
+the host, not the cold tail.
+
+The first full run of these experiments exposed a retry storm (63% of requests failing at 20 req/s);
+the fix is described in [docs/architecture.md](docs/architecture.md#bulkhead-and-admission-control).
+
+### Resume bullets (from the measurements above)
+
+- Built a **Node.js/TypeScript** REST gateway (API Gateway, Lambda, DynamoDB) in front of a simulated legacy **SOAP/XML** reservation system, cutting median fare-query latency from **1,070 ms to 17 ms** with a DynamoDB read-through cache (**76% hit rate**, 57% fewer legacy calls).
+- Kept client-facing errors at **0.83%** (vs. **22%** unprotected) while the legacy system failed **20%** of calls, using timeouts, retries with jitter, a shared circuit breaker, gateway-side rate limiting and stale-cache fallback.
+- Moved slow ticket issuance to an asynchronous **Step Functions** workflow with retries and a compensating seat release, completing **89/89** jobs (**100%**) under injected faults and releasing the hold on all 11 declined payments.
+- Migrated fare quotes off the legacy system with the **strangler fig** pattern: shadow comparison cut mismatches from **32.3% to 0%**, then weighted Lambda aliases shifted traffic 10% → 100% with **zero errors**. Partner access managed with **API keys, usage plans and per-client throttling**, all in **Terraform**.
 
 ## What's in here
 

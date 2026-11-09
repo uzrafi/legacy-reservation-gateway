@@ -1,0 +1,30 @@
+{
+  "description": "Canary 0 -> 10 -> 50 -> 100% to the modern fare service, 120 s per step, 10 req/s",
+  "rolled_back": false,
+  "steps": [
+    {
+      "step_pct": 0,
+      "requests": 1200,
+      "modern_share_pct": 0,
+      "error_pct": 0
+    },
+    {
+      "step_pct": 10,
+      "requests": 1200,
+      "modern_share_pct": 8.3,
+      "error_pct": 0
+    },
+    {
+      "step_pct": 50,
+      "requests": 1200,
+      "modern_share_pct": 50.3,
+      "error_pct": 0
+    },
+    {
+      "step_pct": 100,
+      "requests": 1200,
+      "modern_share_pct": 100,
+      "error_pct": 0
+    }
+  ]
+}

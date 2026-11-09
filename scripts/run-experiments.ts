@@ -144,6 +144,30 @@ function save(name: string, data: Results) {
 }
 
 // ------------------------------------------------------------------ experiments
+async function faresMix(name: string, load: Record<string, string | number>, description: string): Promise<Results> {
+  await resetAll();
+  const s = k6('fares-mix.js', { NAME: name, ...load });
+  const stats = await legacyAdmin('GET', 'stats');
+  const outcomes = ['HIT', 'STALE', 'MISS', 'STALE_FALLBACK', 'BYPASS'].map((o) => [o, count(s, `cache_outcome{phase:measure,outcome:${o}}`)] as const);
+  const measured = outcomes.reduce((n, [, c]) => n + c, 0);
+  const hits = outcomes.filter(([o]) => o !== 'MISS' && o !== 'BYPASS').reduce((n, [, c]) => n + c, 0);
+  const served = count(s, 'http_reqs');
+  const legacyCalls = stats.calls_GetFareQuote ?? 0;
+  return save(name.replace('-', '_'), {
+    description,
+    measured_requests: measured,
+    p50_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(50)')),
+    p95_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(95)')),
+    p99_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(99)')),
+    failed_pct: round(100 * (val(s, 'http_req_failed{phase:measure}', 'rate') ?? 0), 2),
+    cache_hit_rate_pct: round((100 * hits) / measured),
+    outcomes: Object.fromEntries(outcomes),
+    requests_served_total: served,
+    legacy_fare_calls_total: legacyCalls,
+    legacy_calls_avoided_pct: round(100 * (1 - legacyCalls / served)),
+  });
+}
+
 const experiments: Record<string, () => Promise<Results>> = {
   async direct() {
     await resetAll();
@@ -158,29 +182,15 @@ const experiments: Record<string, () => Promise<Results>> = {
     });
   },
 
-  async fares() {
-    await resetAll();
-    const s = k6('fares-mix.js', { WARMUP: '180s', WARM_RATE: 5, DURATION: '5m', RATE: 20 });
-    const stats = await legacyAdmin('GET', 'stats');
-    const outcomes = ['HIT', 'STALE', 'MISS', 'STALE_FALLBACK', 'BYPASS'].map((o) => [o, count(s, `cache_outcome{phase:measure,outcome:${o}}`)] as const);
-    const measured = outcomes.reduce((n, [, c]) => n + c, 0);
-    const hits = outcomes.filter(([o]) => o !== 'MISS' && o !== 'BYPASS').reduce((n, [, c]) => n + c, 0);
-    const served = count(s, 'http_reqs');
-    const legacyCalls = stats.calls_GetFareQuote ?? 0;
-    return save('fares', {
-      description: 'GET /fares via the gateway, realistic mix: 3 min cache warm-up at 5 req/s, then 5 min at 20 req/s (measured)',
-      measured_requests: measured,
-      p50_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(50)')),
-      p95_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(95)')),
-      p99_ms: round(val(s, 'http_req_duration{phase:measure}', 'p(99)')),
-      failed_pct: round(100 * (val(s, 'http_req_failed{phase:measure}', 'rate') ?? 0), 2),
-      cache_hit_rate_pct: round((100 * hits) / measured),
-      outcomes: Object.fromEntries(outcomes),
-      requests_served_total: served,
-      legacy_fare_calls_total: legacyCalls,
-      legacy_calls_avoided_pct: round(100 * (1 - legacyCalls / served)),
-    });
-  },
+  /** Overload: misses arrive at ~4x the host's capacity on a still-warming cache. */
+  fares: () =>
+    faresMix('fares', { WARMUP: '180s', WARM_RATE: 5, DURATION: '5m', RATE: 20 },
+      'GET /fares via the gateway at 20 req/s (4x the legacy host capacity), realistic mix: 3 min warm-up at 5 req/s, then 5 min measured'),
+
+  /** Sustainable load: 2.5x the direct-baseline rate, after a longer warm-up. */
+  fares_sustainable: () =>
+    faresMix('fares-sustainable', { WARMUP: '300s', WARM_RATE: 5, DURATION: '5m', RATE: 10 },
+      'GET /fares via the gateway at 10 req/s (2.5x the direct baseline), realistic mix: 5 min warm-up at 5 req/s, then 5 min measured'),
 
   async faults() {
     await resetAll();

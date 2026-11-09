@@ -1,0 +1,8 @@
+{
+  "description": "GetFareQuote straight to the legacy SOAP host, 4 req/s for 3 min",
+  "requests": 720,
+  "p50_ms": 1070.3,
+  "p95_ms": 1469.6,
+  "p99_ms": 10878.8,
+  "failed_pct": 0
+}

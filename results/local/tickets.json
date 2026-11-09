@@ -1,0 +1,13 @@
+{
+  "description": "100 ticketing jobs with the legacy host failing 20% of calls; ~10% use a declined payment",
+  "jobs_finished_normal": 89,
+  "success_pct_normal": 100,
+  "p50_job_s": 16.2,
+  "p95_job_s": 23.4,
+  "declined_jobs": 11,
+  "compensations_declined": 11,
+  "compensations_normal": 0,
+  "hold_failures": 0,
+  "legacy_faults_injected": 90,
+  "legacy_issue_ticket_calls": 127
+}

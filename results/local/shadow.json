@@ -1,0 +1,18 @@
+{
+  "description": "Shadow mode: serve legacy, compare with the modern fare service. 60 s warm-up + 3 min at 10 req/s per rule set",
+  "naive": {
+    "compared": 2065,
+    "mismatched": 668,
+    "mismatch_pct": 32.349,
+    "by_field": {
+      "missing": 148,
+      "priceCents": 520
+    }
+  },
+  "full": {
+    "compared": 2057,
+    "mismatched": 0,
+    "mismatch_pct": 0,
+    "by_field": {}
+  }
+}

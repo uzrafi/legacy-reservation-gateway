@@ -1,0 +1,8 @@
+{
+  "description": "After a 2 min cache warm-up, the legacy host fails 100% of calls for 2 min in the middle of a 5 min, 10 req/s run",
+  "availability_before_pct": 100,
+  "availability_during_outage_pct": 65.92,
+  "availability_after_pct": 93.9,
+  "served_stale_during_outage_pct": 2.75,
+  "circuit_recovery_s": 17.8
+}

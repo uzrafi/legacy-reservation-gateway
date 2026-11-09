@@ -1,0 +1,134 @@
+{
+  "direct": {
+    "description": "GetFareQuote straight to the legacy SOAP host, 4 req/s for 3 min",
+    "requests": 720,
+    "p50_ms": 1070.3,
+    "p95_ms": 1469.6,
+    "p99_ms": 10878.8,
+    "failed_pct": 0
+  },
+  "fares": {
+    "description": "GET /fares via the gateway, realistic mix: 3 min cache warm-up at 5 req/s, then 5 min at 20 req/s (measured)",
+    "measured_requests": 5644,
+    "p50_ms": 16.4,
+    "p95_ms": 3278.7,
+    "p99_ms": 4182.7,
+    "failed_pct": 5.95,
+    "cache_hit_rate_pct": 78.5,
+    "outcomes": {
+      "HIT": 4076,
+      "STALE": 356,
+      "MISS": 1212,
+      "STALE_FALLBACK": 0,
+      "BYPASS": 0
+    },
+    "requests_served_total": 6902,
+    "legacy_fare_calls_total": 2062,
+    "legacy_calls_avoided_pct": 70.1
+  },
+  "faults": {
+    "description": "Legacy host failing 20% of calls (plus 1% 10 s hangs); 4 req/s for 2 min per arm",
+    "unprotected": {
+      "client_error_pct": 22.25,
+      "p95_ms": 1479.3
+    },
+    "retries_and_breaker": {
+      "client_error_pct": 4.17,
+      "p95_ms": 3640.9
+    },
+    "full_protection": {
+      "client_error_pct": 0.83,
+      "p95_ms": 2680.7
+    },
+    "legacy_calls": 1530,
+    "legacy_faults_injected": 323
+  },
+  "outage": {
+    "description": "After a 2 min cache warm-up, the legacy host fails 100% of calls for 2 min in the middle of a 5 min, 10 req/s run",
+    "availability_before_pct": 100,
+    "availability_during_outage_pct": 65.92,
+    "availability_after_pct": 93.9,
+    "served_stale_during_outage_pct": 2.75,
+    "circuit_recovery_s": 17.8
+  },
+  "tickets": {
+    "description": "100 ticketing jobs with the legacy host failing 20% of calls; ~10% use a declined payment",
+    "jobs_finished_normal": 89,
+    "success_pct_normal": 100,
+    "p50_job_s": 16.2,
+    "p95_job_s": 23.4,
+    "declined_jobs": 11,
+    "compensations_declined": 11,
+    "compensations_normal": 0,
+    "hold_failures": 0,
+    "legacy_faults_injected": 90,
+    "legacy_issue_ticket_calls": 127
+  },
+  "shadow": {
+    "description": "Shadow mode: serve legacy, compare with the modern fare service. 60 s warm-up + 3 min at 10 req/s per rule set",
+    "naive": {
+      "compared": 2065,
+      "mismatched": 668,
+      "mismatch_pct": 32.349,
+      "by_field": {
+        "missing": 148,
+        "priceCents": 520
+      }
+    },
+    "full": {
+      "compared": 2057,
+      "mismatched": 0,
+      "mismatch_pct": 0,
+      "by_field": {}
+    }
+  },
+  "canary": {
+    "description": "Canary 0 -> 10 -> 50 -> 100% to the modern fare service, 120 s per step, 10 req/s",
+    "rolled_back": false,
+    "steps": [
+      {
+        "step_pct": 0,
+        "requests": 1200,
+        "modern_share_pct": 0,
+        "error_pct": 0
+      },
+      {
+        "step_pct": 10,
+        "requests": 1200,
+        "modern_share_pct": 8.3,
+        "error_pct": 0
+      },
+      {
+        "step_pct": 50,
+        "requests": 1200,
+        "modern_share_pct": 50.3,
+        "error_pct": 0
+      },
+      {
+        "step_pct": 100,
+        "requests": 1200,
+        "modern_share_pct": 100,
+        "error_pct": 0
+      }
+    ]
+  },
+  "fares_sustainable": {
+    "description": "GET /fares via the gateway at 10 req/s (2.5x the direct baseline), realistic mix: 5 min warm-up at 5 req/s, then 5 min measured",
+    "measured_requests": 3000,
+    "p50_ms": 17.4,
+    "p95_ms": 1413.8,
+    "p99_ms": 1618.6,
+    "failed_pct": 0.03,
+    "cache_hit_rate_pct": 76.1,
+    "outcomes": {
+      "HIT": 1893,
+      "STALE": 390,
+      "MISS": 717,
+      "STALE_FALLBACK": 0,
+      "BYPASS": 0
+    },
+    "requests_served_total": 4501,
+    "legacy_fare_calls_total": 1943,
+    "legacy_calls_avoided_pct": 56.8
+  }
+}

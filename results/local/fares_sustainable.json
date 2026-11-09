@@ -1,0 +1,19 @@
+{
+  "description": "GET /fares via the gateway at 10 req/s (2.5x the direct baseline), realistic mix: 5 min warm-up at 5 req/s, then 5 min measured",
+  "measured_requests": 3000,
+  "p50_ms": 17.4,
+  "p95_ms": 1413.8,
+  "p99_ms": 1618.6,
+  "failed_pct": 0.03,
+  "cache_hit_rate_pct": 76.1,
+  "outcomes": {
+    "HIT": 1893,
+    "STALE": 390,
+    "MISS": 717,
+    "STALE_FALLBACK": 0,
+    "BYPASS": 0
+  },
+  "requests_served_total": 4501,
+  "legacy_fare_calls_total": 1943,
+  "legacy_calls_avoided_pct": 56.8
+}
